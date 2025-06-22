@@ -25,67 +25,48 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Mock user for development - no login required
+const mockUser: User = {
+  id: 'user-1',
+  email: 'alice@example.com',
+  name: 'Alice Johnson',
+  avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+  preferences: {
+    theme: 'light',
+    notifications: true,
+    privacy: 'private'
+  },
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01')
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const userData = await authService.getCurrentUser();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        localStorage.removeItem('token');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-  }, []);
+  const [user, setUser] = useState<User | null>(mockUser); // Start with mock user
+  const [loading, setLoading] = useState(false); // No loading needed
 
   const login = async (email: string, password: string) => {
-    try {
-      const { user: userData, token } = await authService.login(email, password);
-      localStorage.setItem('token', token);
-      setUser(userData);
-    } catch (error) {
-      throw error;
-    }
+    // Mock login - just set the user
+    setUser(mockUser);
   };
 
   const register = async (email: string, password: string, name: string) => {
-    try {
-      const { user: userData, token } = await authService.register(email, password, name);
-      localStorage.setItem('token', token);
-      setUser(userData);
-    } catch (error) {
-      throw error;
-    }
+    // Mock register - just set the user
+    setUser(mockUser);
   };
 
   const logout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('token');
-      setUser(null);
-    }
+    // Mock logout - just set user to null
+    setUser(null);
   };
 
   const updateProfile = async (data: Partial<User>) => {
-    try {
-      const updatedUser = await authService.updateProfile(data);
+    // Mock profile update
+    if (user) {
+      const updatedUser = { ...user, ...data, updatedAt: new Date() };
       setUser(updatedUser);
-    } catch (error) {
-      throw error;
+      return updatedUser;
     }
+    throw new Error('No user logged in');
   };
 
   const value = {

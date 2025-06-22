@@ -3,6 +3,12 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  avatar?: string;
+  preferences?: {
+    theme: 'light' | 'dark';
+    notifications: boolean;
+    privacy: 'public' | 'private' | 'friends';
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -13,7 +19,7 @@ export interface Person {
   name: string;
   relationship?: string;
   avatar?: string;
-  tags: string[];
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,13 +36,13 @@ export interface Memory {
   userId: string;
   title: string;
   content: string;
-  summary: string;
-  people: string[]; // Person IDs
-  emotions: Emotion;
-  tags: string[];
+  summary?: string;
+  people?: string[];
+  emotions?: string[];
+  tags?: string[];
+  mood?: number;
   location?: string;
   weather?: string;
-  mood: number; // 1-10 scale
   isPrivate: boolean;
   audioUrl?: string;
   imageUrl?: string;
@@ -52,16 +58,13 @@ export interface MemoryWithPeople extends Omit<Memory, 'people'> {
 export interface Nudge {
   id: string;
   userId: string;
-  type: 'reconnect' | 'log_memory' | 'emotional_gap' | 'person_reminder';
   title: string;
-  message: string;
-  priority: 'low' | 'medium' | 'high';
-  relatedPeople?: string[];
-  relatedMemories?: string[];
-  isRead: boolean;
-  isActioned: boolean;
+  content: string;
+  type: 'memory' | 'reflection' | 'reminder';
+  scheduledFor: Date;
+  isActive: boolean;
   createdAt: Date;
-  expiresAt?: Date;
+  updatedAt: Date;
 }
 
 // AI Processing Types
@@ -138,12 +141,16 @@ export interface CreateMemoryRequest {
   location?: string;
   weather?: string;
   isPrivate?: boolean;
-  audioFile?: Express.Multer.File;
-  imageFile?: Express.Multer.File;
 }
 
-export interface UpdateMemoryRequest extends Partial<CreateMemoryRequest> {
-  id: string;
+export interface UpdateMemoryRequest {
+  title?: string;
+  content?: string;
+  people?: string[];
+  tags?: string[];
+  location?: string;
+  weather?: string;
+  isPrivate?: boolean;
 }
 
 export interface CreatePersonRequest {
@@ -158,6 +165,7 @@ export interface UpdatePersonRequest extends Partial<CreatePersonRequest> {
 }
 
 export interface MemoryFilters {
+  userId?: string;
   people?: string[];
   emotions?: string[];
   tags?: string[];
@@ -248,4 +256,24 @@ export interface SortOptions {
 export interface PaginationOptions {
   page: number;
   limit: number;
+}
+
+export interface AIAnalysis {
+  summary: string;
+  emotions: string[];
+  tags: string[];
+  mood: number;
+}
+
+export interface SimilarMemory {
+  memoryId: string;
+  similarity: number;
+  content: string;
+  summary: string;
+  metadata: Record<string, any>;
+}
+
+export interface CustomError extends Error {
+  statusCode?: number;
+  code?: string;
 } 

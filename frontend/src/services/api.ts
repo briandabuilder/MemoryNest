@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 class ApiService {
   private api: AxiosInstance;
@@ -51,10 +51,8 @@ class ApiService {
       
       switch (status) {
         case 401:
-          // Unauthorized - redirect to login
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          toast.error('Session expired. Please login again.');
+          // Unauthorized - just show error, no redirect
+          toast.error('Authentication required.');
           break;
         case 403:
           toast.error('You do not have permission to perform this action.');

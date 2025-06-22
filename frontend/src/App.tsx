@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 
 // Pages
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MemoryCapture from './pages/MemoryCapture';
 import Memories from './pages/Memories';
@@ -14,7 +13,6 @@ import Profile from './pages/Profile';
 
 // Components
 import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 
 // Create a client
@@ -34,16 +32,11 @@ function App() {
         <Router>
           <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
             <Routes>
-              <Route path="/login" element={<Login />} />
               <Route
                 path="/"
-                element={
-                  <ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>
-                }
+                element={<Layout />}
               >
-                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route index element={<div className="flex items-center justify-center h-64 text-2xl text-gray-500">Welcome to MemoryNest! Select a page from the sidebar.</div>} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="capture" element={<MemoryCapture />} />
                 <Route path="memories" element={<Memories />} />

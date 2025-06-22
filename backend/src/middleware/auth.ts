@@ -1,6 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { createAuthError, createForbiddenError } from './errorHandler';
 import { User } from '../types';
 
 // Extend Express Request interface to include user
@@ -12,97 +10,90 @@ declare global {
   }
 }
 
-// JWT token verification middleware
-export const authMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw createAuthError('No token provided');
-    }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    if (!token) {
-      throw createAuthError('No token provided');
-    }
-
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-    if (!decoded || !decoded.userId) {
-      throw createAuthError('Invalid token');
-    }
-
-    // Add user info to request
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      name: decoded.name,
-      createdAt: new Date(decoded.createdAt),
-      updatedAt: new Date(decoded.updatedAt),
-    };
-
-    next();
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(createAuthError('Invalid token'));
-    } else if (error instanceof jwt.TokenExpiredError) {
-      next(createAuthError('Token expired'));
-    } else {
-      next(error);
-    }
+// Mock user for development - in production this would be replaced with proper auth
+const mockUsers: User[] = [
+  {
+    id: 'user-1',
+    email: 'alice@example.com',
+    name: 'Alice Johnson',
+    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+    preferences: {
+      theme: 'light',
+      notifications: true,
+      privacy: 'private'
+    },
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01')
+  },
+  {
+    id: 'user-2',
+    email: 'bob@example.com',
+    name: 'Bob Smith',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+    preferences: {
+      theme: 'dark',
+      notifications: false,
+      privacy: 'friends'
+    },
+    createdAt: new Date('2024-01-02'),
+    updatedAt: new Date('2024-01-02')
+  },
+  {
+    id: 'user-3',
+    email: 'carol@example.com',
+    name: 'Carol Davis',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+    preferences: {
+      theme: 'light',
+      notifications: true,
+      privacy: 'public'
+    },
+    createdAt: new Date('2024-01-03'),
+    updatedAt: new Date('2024-01-03')
   }
+];
+
+export const authenticateUser = (req: Request, res: Response, next: NextFunction): void => {
+  // For development, use the first user as default
+  // In a real app, this would check for a valid token
+  const userId = req.headers['x-user-id'] as string || 'user-1';
+  
+  const user = mockUsers.find(u => u.id === userId);
+  
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      error: 'User not found'
+    });
+    return;
+  }
+
+  req.user = user;
+  next();
 };
 
-// Optional auth middleware (doesn't throw error if no token)
-export const optionalAuthMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next();
+export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
+  const userId = req.headers['x-user-id'] as string;
+  
+  if (userId) {
+    const user = mockUsers.find(u => u.id === userId);
+    if (user) {
+      req.user = user;
     }
-
-    const token = authHeader.substring(7);
-
-    if (!token) {
-      return next();
-    }
-
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-    if (decoded && decoded.userId) {
-      req.user = {
-        id: decoded.userId,
-        email: decoded.email,
-        name: decoded.name,
-        createdAt: new Date(decoded.createdAt),
-        updatedAt: new Date(decoded.updatedAt),
-      };
-    }
-
-    next();
-  } catch (error) {
-    // Don't throw error for optional auth, just continue
-    next();
   }
+  
+  next();
 };
 
 // Role-based authorization middleware
 export const requireRole = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return next(createAuthError('Authentication required'));
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+      return;
     }
 
     // For now, we'll use a simple role system
@@ -110,33 +101,18 @@ export const requireRole = (roles: string[]) => {
     const userRole = (req.user as any).role || 'user';
 
     if (!roles.includes(userRole)) {
-      return next(createForbiddenError('Insufficient permissions'));
+      res.status(403).json({
+        success: false,
+        error: 'Insufficient permissions'
+      });
+      return;
     }
 
     next();
   };
 };
 
-// Generate JWT token
-export const generateToken = (user: User): string => {
-  const payload = {
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-
-  return jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
-};
-
-// Verify JWT token (for use in services)
-export const verifyToken = (token: string): any => {
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET!);
-  } catch (error) {
-    throw createAuthError('Invalid token');
-  }
+// Helper function to get mock users (for testing/development)
+export const getMockUsers = (): User[] => {
+  return mockUsers;
 }; 

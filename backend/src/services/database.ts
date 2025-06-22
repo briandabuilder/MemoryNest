@@ -75,12 +75,12 @@ export const createRecord = async <T>(
       .single();
 
     if (error) {
-      handleDatabaseError(error, `create ${table}`);
+      return handleDatabaseError(error, `create ${table}`);
     }
 
     return result as T;
   } catch (error) {
-    handleDatabaseError(error, `create ${table}`);
+    return handleDatabaseError(error, `create ${table}`);
   }
 };
 
@@ -99,12 +99,12 @@ export const getRecordById = async <T>(
       if (error.code === 'PGRST116') { // No rows returned
         return null;
       }
-      handleDatabaseError(error, `get ${table} by id`);
+      return handleDatabaseError(error, `get ${table} by id`);
     }
 
     return data as T;
   } catch (error) {
-    handleDatabaseError(error, `get ${table} by id`);
+    return handleDatabaseError(error, `get ${table} by id`);
   }
 };
 
@@ -122,12 +122,12 @@ export const updateRecord = async <T>(
       .single();
 
     if (error) {
-      handleDatabaseError(error, `update ${table}`);
+      return handleDatabaseError(error, `update ${table}`);
     }
 
     return result as T;
   } catch (error) {
-    handleDatabaseError(error, `update ${table}`);
+    return handleDatabaseError(error, `update ${table}`);
   }
 };
 
@@ -142,10 +142,10 @@ export const deleteRecord = async (
       .eq('id', id);
 
     if (error) {
-      handleDatabaseError(error, `delete ${table}`);
+      return handleDatabaseError(error, `delete ${table}`);
     }
   } catch (error) {
-    handleDatabaseError(error, `delete ${table}`);
+    return handleDatabaseError(error, `delete ${table}`);
   }
 };
 
@@ -190,12 +190,12 @@ export const listRecords = async <T>(
     const { data, error } = await query;
 
     if (error) {
-      handleDatabaseError(error, `list ${table}`);
+      return handleDatabaseError(error, `list ${table}`);
     }
 
     return data as T[];
   } catch (error) {
-    handleDatabaseError(error, `list ${table}`);
+    return handleDatabaseError(error, `list ${table}`);
   }
 };
 
@@ -219,12 +219,12 @@ export const countRecords = async (
     const { count, error } = await query;
 
     if (error) {
-      handleDatabaseError(error, `count ${table}`);
+      return handleDatabaseError(error, `count ${table}`);
     }
 
     return count || 0;
   } catch (error) {
-    handleDatabaseError(error, `count ${table}`);
+    return handleDatabaseError(error, `count ${table}`);
   }
 };
 
@@ -266,12 +266,12 @@ export const searchRecords = async <T>(
     const { data, error } = await query;
 
     if (error) {
-      handleDatabaseError(error, `search ${table}`);
+      return handleDatabaseError(error, `search ${table}`);
     }
 
     return data as T[];
   } catch (error) {
-    handleDatabaseError(error, `search ${table}`);
+    return handleDatabaseError(error, `search ${table}`);
   }
 };
 

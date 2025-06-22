@@ -22,7 +22,7 @@ export const errorHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   let err = error;
 
   // If error is not a CustomError, create one
@@ -45,44 +45,49 @@ export const errorHandler = (
 
   // Handle specific error types
   if (customError.name === 'ValidationError') {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'Validation Error',
       message: customError.message,
       details: (customError as any).details,
     });
+    return;
   }
 
   if (customError.name === 'CastError') {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'Invalid ID',
       message: 'The provided ID is not valid',
     });
+    return;
   }
 
   if (customError.name === 'JsonWebTokenError') {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Invalid Token',
       message: 'The provided token is not valid',
     });
+    return;
   }
 
   if (customError.name === 'TokenExpiredError') {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Token Expired',
       message: 'The provided token has expired',
     });
+    return;
   }
 
   if (customError.name === 'MulterError') {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'File Upload Error',
       message: customError.message,
     });
+    return;
   }
 
   // Default error response

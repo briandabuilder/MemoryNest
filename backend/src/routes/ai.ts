@@ -1,22 +1,77 @@
-import { Router, Request, Response } from 'express';
-import { body, validationResult } from 'express-validator';
+import express from 'express';
+import { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
-import { processMemoryQuery, generateNudges, analyzeEmotionalPatterns, generateMemoryInsights } from '../services/aiService';
-import { listRecords } from '../services/database';
-import { AIQueryRequest, Memory, Person } from '../types';
-import { logger } from '../utils/logger';
 
-const router = Router();
+const router = express.Router();
 
-// Validation middleware
-const validateQuery = [
-  body('query').trim().isLength({ min: 1, max: 500 }),
-  body('limit').optional().isInt({ min: 1, max: 50 }),
-  body('filters').optional().isObject(),
-];
+// Mock AI responses for development
+const mockAIResponses = {
+  summarize: (content: string) => {
+    const words = content.split(' ');
+    const summary = words.slice(0, 15).join(' ') + (words.length > 15 ? '...' : '');
+    return {
+      summary,
+      emotions: ['joy', 'contentment'],
+      tags: ['memory', 'reflection'],
+      mood: 7
+    };
+  },
+  
+  search: (query: string) => {
+    return [
+      {
+        memoryId: 'memory-1',
+        similarity: 0.85,
+        content: 'Today was absolutely amazing! I went to the beach for the first time this summer...',
+        summary: 'A perfect beach day with clear water and gentle waves',
+        metadata: {
+          title: 'First Day at the Beach',
+          people: ['Sarah', 'Mike'],
+          tags: ['beach', 'summer', 'swimming'],
+          mood: 9
+        }
+      },
+      {
+        memoryId: 'memory-2',
+        similarity: 0.72,
+        content: 'Met up with Jessica today after not seeing her for almost a year...',
+        summary: 'Reconnecting with an old friend over coffee after a year apart',
+        metadata: {
+          title: 'Coffee with an Old Friend',
+          people: ['Jessica'],
+          tags: ['friendship', 'coffee', 'reunion'],
+          mood: 8
+        }
+      }
+    ];
+  },
+  
+  insights: (memories: any[]) => {
+    return [
+      {
+        type: 'pattern',
+        title: 'You tend to feel happier on weekends',
+        description: 'Based on your recent memories, your mood is consistently higher on Saturdays and Sundays.',
+        confidence: 0.82
+      },
+      {
+        type: 'connection',
+        title: 'Strong bonds with close friends',
+        description: 'Your memories show deep emotional connections with a small circle of close friends.',
+        confidence: 0.75
+      },
+      {
+        type: 'trend',
+        title: 'Increasing appreciation for nature',
+        description: 'You\'ve been spending more time outdoors and finding joy in natural settings.',
+        confidence: 0.68
+      }
+    ];
+  }
+};
 
-// Process natural language memory query
-router.post('/query', validateQuery, asyncHandler(async (req: Request, res: Response) => {
+// Summarize memory content
+router.post('/summarize', asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -24,40 +79,32 @@ router.post('/query', validateQuery, asyncHandler(async (req: Request, res: Resp
     });
   }
 
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
+  const { content, people = [] } = req.body;
+
+  if (!content) {
     return res.status(400).json({
       success: false,
-      error: 'Validation failed',
-      details: errors.array(),
+      error: 'Content is required',
     });
   }
 
-  const { query, limit, filters }: AIQueryRequest = req.body;
-
   try {
-    const result = await processMemoryQuery({
-      query,
-      userId: req.user.id,
-      filters,
-      limit,
-    });
-
-    res.json({
+    const result = mockAIResponses.summarize(content);
+    
+    return res.json({
       success: true,
       data: result,
     });
   } catch (error) {
-    logger.error('AI query error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: 'Failed to process query',
+      error: 'Failed to summarize content',
     });
   }
 }));
 
-// Generate smart nudges
-router.post('/nudges', asyncHandler(async (req: Request, res: Response) => {
+// Search similar memories
+router.post('/search', asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -65,80 +112,32 @@ router.post('/nudges', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const { daysSinceLastMemory, emotionalGaps, inactivePeople } = req.body;
+  const { query, limit = 5, threshold = 0.5 } = req.body;
+
+  if (!query) {
+    return res.status(400).json({
+      success: false,
+      error: 'Search query is required',
+    });
+  }
 
   try {
-    const nudges = await generateNudges(
-      req.user.id,
-      daysSinceLastMemory,
-      emotionalGaps,
-      inactivePeople
-    );
-
-    res.json({
+    const results = mockAIResponses.search(query);
+    const filteredResults = results.filter(result => result.similarity >= threshold);
+    
+    return res.json({
       success: true,
-      data: { nudges },
+      data: filteredResults.slice(0, limit),
     });
   } catch (error) {
-    logger.error('Nudge generation error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: 'Failed to generate nudges',
+      error: 'Failed to search memories',
     });
   }
 }));
 
-// Analyze emotional patterns
-router.post('/analyze-emotions', asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      error: 'Authentication required',
-    });
-  }
-
-  const { limit = 100 } = req.body;
-
-  try {
-    // Get user's recent memories
-    const memories = await listRecords<Memory>(
-      'memories',
-      { userId: req.user.id },
-      {
-        limit: parseInt(limit),
-        orderBy: 'createdAt',
-        orderDirection: 'desc',
-      }
-    );
-
-    if (memories.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          dominantEmotions: [],
-          moodTrend: 'stable',
-          emotionalGaps: [],
-          recommendations: ['Start logging your first memory to get emotional insights!'],
-        },
-      });
-    }
-
-    const analysis = await analyzeEmotionalPatterns(memories);
-
-    res.json({
-      success: true,
-      data: analysis,
-    });
-  } catch (error) {
-    logger.error('Emotional analysis error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to analyze emotions',
-    });
-  }
-}));
-
-// Generate memory insights
+// Generate insights from memories
 router.post('/insights', asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({
@@ -147,58 +146,53 @@ router.post('/insights', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const { limit = 50 } = req.body;
+  const { memories = [] } = req.body;
 
   try {
-    // Get user's recent memories and people
-    const [memories, people] = await Promise.all([
-      listRecords<Memory>(
-        'memories',
-        { userId: req.user.id },
-        {
-          limit: parseInt(limit),
-          orderBy: 'createdAt',
-          orderDirection: 'desc',
-        }
-      ),
-      listRecords<Person>(
-        'people',
-        { userId: req.user.id },
-        {
-          orderBy: 'name',
-          orderDirection: 'asc',
-        }
-      ),
-    ]);
-
-    if (memories.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          insights: ['Start your memory journey by logging your first moment!'],
-          patterns: [],
-          suggestions: ['Try logging a memory about someone important to you'],
-        },
-      });
-    }
-
-    const insights = await generateMemoryInsights(memories, people);
-
-    res.json({
+    const insights = mockAIResponses.insights(memories);
+    
+    return res.json({
       success: true,
       data: insights,
     });
   } catch (error) {
-    logger.error('Insights generation error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to generate insights',
     });
   }
 }));
 
-// Get AI-powered recommendations
-router.get('/recommendations', asyncHandler(async (req: Request, res: Response) => {
+// Transcribe audio (mock)
+router.post('/transcribe', asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+    });
+  }
+
+  // In a real implementation, this would process the audio file
+  // For now, return a mock transcription
+  try {
+    return res.json({
+      success: true,
+      data: {
+        transcription: "This is a mock transcription of the audio content. In a real implementation, this would be the actual transcribed text from the audio file.",
+        confidence: 0.95,
+        language: 'en'
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to transcribe audio',
+    });
+  }
+}));
+
+// Generate memory suggestions
+router.get('/suggestions', asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -207,123 +201,35 @@ router.get('/recommendations', asyncHandler(async (req: Request, res: Response) 
   }
 
   try {
-    // Get user's recent data
-    const [memories, people] = await Promise.all([
-      listRecords<Memory>(
-        'memories',
-        { userId: req.user.id },
-        {
-          limit: 20,
-          orderBy: 'createdAt',
-          orderDirection: 'desc',
-        }
-      ),
-      listRecords<Person>(
-        'people',
-        { userId: req.user.id },
-        {
-          orderBy: 'name',
-          orderDirection: 'asc',
-        }
-      ),
-    ]);
-
-    const recommendations = [];
-
-    // Generate recommendations based on data
-    if (memories.length === 0) {
-      recommendations.push({
-        type: 'first_memory',
-        title: 'Start Your Journey',
-        message: 'Log your first memory to begin your personal story',
-        priority: 'high',
-      });
-    } else {
-      // Check for emotional gaps
-      const emotions = memories.map(m => m.emotions.primary);
-      const uniqueEmotions = [...new Set(emotions)];
-      
-      if (uniqueEmotions.length < 3) {
-        recommendations.push({
-          type: 'emotional_diversity',
-          title: 'Explore Your Emotions',
-          message: 'Try reflecting on different emotional experiences',
-          priority: 'medium',
-        });
-      }
-
-      // Check for people diversity
-      if (people.length > 0 && memories.length > 0) {
-        const peopleInMemories = new Set(memories.flatMap(m => m.people));
-        const inactivePeople = people.filter(p => !peopleInMemories.has(p.id));
-        
-        if (inactivePeople.length > 0) {
-          recommendations.push({
-            type: 'reconnect',
-            title: 'Reconnect with People',
-            message: `Consider logging memories about ${inactivePeople[0].name}`,
-            priority: 'medium',
-            relatedPeople: [inactivePeople[0].id],
-          });
-        }
-      }
-
-      // Check for recent activity
-      const lastMemory = memories[0];
-      const daysSinceLastMemory = Math.floor(
-        (Date.now() - new Date(lastMemory.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      if (daysSinceLastMemory > 7) {
-        recommendations.push({
-          type: 'log_memory',
-          title: 'Capture Today\'s Moments',
-          message: 'It\'s been a while since your last memory. How has your day been?',
-          priority: 'high',
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      data: { recommendations },
-    });
-  } catch (error) {
-    logger.error('Recommendations error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate recommendations',
-    });
-  }
-}));
-
-// Get AI service status
-router.get('/status', asyncHandler(async (req: Request, res: Response) => {
-  try {
-    // Check if OpenAI API key is configured
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-
-    res.json({
-      success: true,
-      data: {
-        openai: {
-          configured: hasOpenAIKey,
-          model: process.env.OPENAI_MODEL || 'gpt-4o',
-          embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
-        },
-        services: {
-          summarization: hasOpenAIKey,
-          semanticSearch: hasOpenAIKey,
-          emotionAnalysis: hasOpenAIKey,
-          nudgeGeneration: hasOpenAIKey,
-        },
+    const suggestions = [
+      {
+        type: 'person',
+        title: 'Reconnect with Sarah',
+        description: 'It\'s been a while since you logged a memory with Sarah. Consider reaching out!',
+        priority: 'medium'
       },
+      {
+        type: 'activity',
+        title: 'Log your weekend activities',
+        description: 'Weekends often bring the most memorable moments. Don\'t forget to capture them!',
+        priority: 'high'
+      },
+      {
+        type: 'reflection',
+        title: 'Reflect on recent achievements',
+        description: 'Take time to acknowledge and celebrate your recent accomplishments.',
+        priority: 'medium'
+      }
+    ];
+    
+    return res.json({
+      success: true,
+      data: suggestions,
     });
   } catch (error) {
-    logger.error('AI status error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: 'Failed to get AI status',
+      error: 'Failed to generate suggestions',
     });
   }
 }));

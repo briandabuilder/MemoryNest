@@ -5,11 +5,6 @@ import {
   MagnifyingGlassIcon, 
   FunnelIcon,
   PlusIcon,
-  UserIcon,
-  MapPinIcon,
-  CalendarIcon,
-  HeartIcon,
-  TagIcon,
   BookOpenIcon
 } from '@heroicons/react/24/outline';
 import memoryService from '../services/memoryService';
@@ -198,7 +193,7 @@ const Memories: React.FC = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
-              {isLoading ? 'Loading...' : `Memories (${memoriesData?.pagination.total || 0})`}
+              {isLoading ? 'Loading...' : `Memories (${memoriesData?.pagination?.total || 0})`}
             </h2>
           </div>
         </div>
@@ -208,7 +203,7 @@ const Memories: React.FC = () => {
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-          ) : memoriesData?.data.length === 0 ? (
+          ) : memoriesData?.memories?.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <BookOpenIcon className="h-12 w-12 mx-auto" />
@@ -229,7 +224,7 @@ const Memories: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {memoriesData?.data.map((memory: Memory) => (
+              {memoriesData?.memories?.map((memory: Memory) => (
                 <div key={memory.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -237,36 +232,31 @@ const Memories: React.FC = () => {
                       
                       {/* Memory metadata */}
                       <div className="flex items-center flex-wrap gap-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          {formatDate(memory.created_at)}
+                        <div>
+                          Date: {formatDate(memory.createdAt || memory.created_at)}
                         </div>
                         
-                        <div className="flex items-center">
-                          <HeartIcon className="h-4 w-4 mr-1" />
-                          <span className={`px-2 py-1 rounded-full text-xs ${getMoodColor(memory.mood)}`}>
+                        <div>
+                          Mood: <span className={`px-2 py-1 rounded-full text-xs ${getMoodColor(String(memory.mood))}`}>
                             {memory.mood}
                           </span>
                         </div>
 
                         {memory.location && (
-                          <div className="flex items-center">
-                            <MapPinIcon className="h-4 w-4 mr-1" />
-                            {memory.location}
+                          <div>
+                            Location: {memory.location}
                           </div>
                         )}
 
-                        {memory.people_mentioned.length > 0 && (
-                          <div className="flex items-center">
-                            <UserIcon className="h-4 w-4 mr-1" />
-                            {memory.people_mentioned.length} people
+                        {(memory.people || memory.people_mentioned)?.length > 0 && (
+                          <div>
+                            People: {(memory.people || memory.people_mentioned).length} mentioned
                           </div>
                         )}
 
                         {memory.tags.length > 0 && (
-                          <div className="flex items-center">
-                            <TagIcon className="h-4 w-4 mr-1" />
-                            {memory.tags.slice(0, 3).join(', ')}
+                          <div>
+                            Tags: {memory.tags.slice(0, 3).join(', ')}
                             {memory.tags.length > 3 && ` +${memory.tags.length - 3} more`}
                           </div>
                         )}
